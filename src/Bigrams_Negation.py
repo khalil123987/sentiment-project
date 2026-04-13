@@ -1,0 +1,78 @@
+import nltk
+import re
+from nltk.corpus import movie_reviews
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.svm import LinearSVC
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report
+
+nltk.download('movie_reviews', quiet=True)
+
+# Negation
+def negation_preprocessing(text):
+    negation_words = {
+        "not", "never", "no", "nor", "neither",
+        "isn't", "wasn't", "doesn't", "didn't",
+        "won't", "can't", "couldn't", "hardly", "barely"
+    }
+    stop_words = {"but", "however", "although", "though", "yet"}
+
+    tokens = re.findall(r"\b\w+\b", text.lower())
+    result = []
+    negating = 0
+
+    for token in tokens:
+        if token in negation_words:
+            negating = 3
+            result.append(token)
+        elif token in stop_words:
+            negating = 0
+            result.append(token)
+        elif negating > 0:
+            result.append("not_" + token)
+            negating -= 1
+        else:
+            result.append(token)
+
+    return " ".join(result)
+
+# Load in Data
+documents = []
+labels = []
+
+for category in movie_reviews.categories():
+    for fileid in movie_reviews.fileids(categories=category):
+        text = " ".join(movie_reviews.words(fileid))
+        documents.append(text)
+        labels.append(1 if category == 'pos' else 0)
+
+# Apply negation preprocessing to all reviews
+documents_negated = [negation_preprocessing(doc) for doc in documents]
+
+# Train/test split 80/20
+X_train_raw, X_test_raw, y_train, y_test = train_test_split(
+    documents_negated, labels, test_size=0.2, random_state=42
+)
+
+# TF-IDF with bigrams
+vectorizer = TfidfVectorizer(ngram_range=(1, 2), max_features=50000)
+X_train = vectorizer.fit_transform(X_train_raw)
+X_test = vectorizer.transform(X_test_raw)
+
+# Train and evaluate the combined model (bigrams + negation)
+print("Feature Set 4 - Bigrams + Negation")
+print("-" * 50)
+
+models = {
+    "Logistic Regression": LogisticRegression(max_iter=1000, random_state=42),
+    "Naive Bayes":         MultinomialNB(),
+    "Linear SVM":          LinearSVC(max_iter=2000, random_state=42),
+}
+
+for name, model in models.items():
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+    print(f"\n{name}")
+    print(classification_report(y_test, y_pred, target_names=['negative', 'positive']))
