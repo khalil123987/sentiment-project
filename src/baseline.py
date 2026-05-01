@@ -19,6 +19,7 @@ for category in movie_reviews.categories():
         documents.append(text)
         labels.append(1 if category == 'pos' else 0)
 
+
 # Train/Test split 80/20
 X_train_raw, X_test_raw, y_train, y_test = train_test_split(
     documents, labels, test_size=0.2, random_state=42
